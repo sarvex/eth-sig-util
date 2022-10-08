@@ -298,9 +298,9 @@ const encodeDataExamples = {
     MAX_SAFE_INTEGER_AS_HEX,
     MAX_SAFE_INTEGER_PLUS_ONE_CHAR_AS_HEX,
   ],
-  int8: [0, '0', '0x0', 255, -255],
+  int8: [0, '0', '0x0', 127, -128],
   int256: [0, '0', '0x0', Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER],
-  uint8: [0, '0', '0x0', 255],
+  uint8: [0, '0', '0x0', 128],
   uint256: [0, '0', '0x0', Number.MAX_SAFE_INTEGER],
   // atomic types not supported by EIP-712:
   int: [0, '0', '0x0', Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER], // interpreted as `int256` by `ethereumjs-abi`
@@ -313,20 +313,45 @@ const encodeDataErrorExamples = {
   address: [
     {
       input: '0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB0',
-      errorMessage: 'Supplied uint exceeds width: 160 vs 164',
+      errorMessage:
+        'Unable to encode value: Invalid address value. Expected address to be 20 bytes long, but received 21 bytes.',
     },
   ],
-  int8: [{ input: '256', errorMessage: 'Supplied int exceeds width: 8 vs 9' }],
-  uint: [{ input: -1, errorMessage: 'Supplied uint is negative' }],
-  uint8: [{ input: -1, errorMessage: 'Supplied uint is negative' }],
-  uint256: [{ input: -1, errorMessage: 'Supplied uint is negative' }],
+  int8: [
+    {
+      input: '256',
+      errorMessage:
+        'Unable to encode value: Number "256" is out of range for type "int8".',
+    },
+  ],
+  uint: [{ input: -1, errorMessage: 'Value must be a non-negative bigint.' }],
+  uint8: [{ input: -1, errorMessage: 'Value must be a non-negative bigint.' }],
+  uint256: [
+    { input: -1, errorMessage: 'Value must be a non-negative bigint.' },
+  ],
   bytes1: [
-    { input: 'a', errorMessage: 'Cannot convert string to buffer' },
-    { input: 'test', errorMessage: 'Cannot convert string to buffer' },
+    {
+      input: 'a',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "a".',
+    },
+    {
+      input: 'test',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "test".',
+    },
   ],
   bytes32: [
-    { input: 'a', errorMessage: 'Cannot convert string to buffer' },
-    { input: 'test', errorMessage: 'Cannot convert string to buffer' },
+    {
+      input: 'a',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "a".',
+    },
+    {
+      input: 'test',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "test".',
+    },
   ],
 };
 
@@ -623,7 +648,9 @@ describe('TypedDataUtils.encodeData', function () {
           types,
           SignTypedDataVersion.V3,
         ).toString('hex'),
-      ).toThrow(/^Cannot read prop.+ null/u);
+      ).toThrow(
+        'Unable to encode value: Invalid number. Expected a valid number value, but received "null".',
+      );
     });
 
     it('should encode data with an atomic property set to undefined', function () {
@@ -840,7 +867,7 @@ describe('TypedDataUtils.encodeData', function () {
           types,
           SignTypedDataVersion.V3,
         ).toString('hex'),
-      ).toThrow('Unsupported or invalid type: foo');
+      ).toThrow('Unable to encode value: The type "foo" is not supported.');
     });
 
     it('should encode data when given extraneous types', function () {
@@ -1358,7 +1385,7 @@ describe('TypedDataUtils.encodeData', function () {
           types,
           SignTypedDataVersion.V4,
         ).toString('hex'),
-      ).toThrow('Unsupported or invalid type: foo');
+      ).toThrow('Unable to encode value: The type "foo" is not supported.');
     });
 
     it('should encode data when given extraneous types', function () {
@@ -2187,7 +2214,7 @@ describe('TypedDataUtils.hashStruct', function () {
           types,
           SignTypedDataVersion.V3,
         ).toString('hex'),
-      ).toThrow('Unsupported or invalid type: foo');
+      ).toThrow('Unable to encode value: The type "foo" is not supported.');
     });
 
     it('should hash data when given extraneous types', function () {
@@ -2705,7 +2732,7 @@ describe('TypedDataUtils.hashStruct', function () {
           types,
           SignTypedDataVersion.V4,
         ).toString('hex'),
-      ).toThrow('Unsupported or invalid type: foo');
+      ).toThrow('Unable to encode value: The type "foo" is not supported.');
     });
 
     it('should hash data when given extraneous types', function () {
@@ -4266,9 +4293,9 @@ const signTypedDataV1Examples = {
     Number.MAX_SAFE_INTEGER,
     Buffer.from('10', 'utf8'),
   ],
-  int8: [0, '0', '0x0', 255, -255],
+  int8: [0, '0', '0x0', 127, -128],
   int256: [0, '0', '0x0', Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER],
-  uint8: [0, '0', '0x0', 255, -255],
+  uint8: [0, '0', '0x0', 128],
   uint256: [
     0,
     '0',
@@ -4289,8 +4316,7 @@ const signTypedDataV1ErrorExamples = {
     {
       // V1: Does not accept numbers as strings (arguably correctly).
       input: 10,
-      errorMessage:
-        'The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received type number (10)',
+      errorMessage: 'Value must be a string.',
     },
   ],
   address: [
@@ -4298,17 +4324,39 @@ const signTypedDataV1ErrorExamples = {
       // V1: Unprefixed addresses are not accepted.
       input: 'bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB',
       errorMessage:
-        'Cannot convert string to buffer. toBuffer only supports 0x-prefixed hex strings and this string was given:',
+        'Expected a bytes-like value, got "bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB".',
     },
   ],
-  int8: [{ input: '256', errorMessage: 'Supplied int exceeds width: 8 vs 9' }],
+  int8: [
+    {
+      input: '256',
+      errorMessage:
+        'Unable to encode value: Number "256" is out of range for type "int8".',
+    },
+  ],
   bytes1: [
-    { input: 'a', errorMessage: 'Cannot convert string to buffer' },
-    { input: 'test', errorMessage: 'Cannot convert string to buffer' },
+    {
+      input: 'a',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "a".',
+    },
+    {
+      input: 'test',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "test".',
+    },
   ],
   bytes32: [
-    { input: 'a', errorMessage: 'Cannot convert string to buffer' },
-    { input: 'test', errorMessage: 'Cannot convert string to buffer' },
+    {
+      input: 'a',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "a".',
+    },
+    {
+      input: 'test',
+      errorMessage:
+        'An unexpected error occurred: Expected a bytes-like value, got "test".',
+    },
   ],
 };
 
@@ -4480,9 +4528,7 @@ describe('signTypedData', function () {
                   data: [{ name: 'data', type: `${type}[]`, value: inputs }],
                   version: SignTypedDataVersion.V1,
                 }),
-              ).toThrow(
-                'The "list[0]" argument must be an instance of Buffer or Uint8Array. Received type number (10)',
-              );
+              ).toThrow('Expected a bytes-like value, got "10".');
             });
           } else {
             it(`should sign array of all ${type} example data`, function () {
@@ -4506,7 +4552,9 @@ describe('signTypedData', function () {
           data: [{ name: 'data', type: 'int32', value: null }],
           version: SignTypedDataVersion.V1,
         }),
-      ).toThrow(/^Cannot read prop.+ null/u);
+      ).toThrow(
+        'Unable to encode value: Invalid number. Expected a valid number value, but received "null".',
+      );
     });
 
     it('should sign data with an atomic property set to undefined', function () {
@@ -4526,9 +4574,7 @@ describe('signTypedData', function () {
           data: [{ name: 'data', type: 'string', value: null }],
           version: SignTypedDataVersion.V1,
         }),
-      ).toThrow(
-        'The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null',
-      );
+      ).toThrow('Value must be a string.');
     });
 
     it('should sign data with a dynamic property set to undefined', function () {
@@ -4564,7 +4610,7 @@ describe('signTypedData', function () {
           data: [{ name: 'data', type: 'foo', value: 'test' }],
           version: SignTypedDataVersion.V1,
         }),
-      ).toThrow('Unsupported or invalid type: foo');
+      ).toThrow('Unable to encode value: The type "foo" is not supported.');
     });
   });
 
@@ -5125,7 +5171,9 @@ describe('signTypedData', function () {
           },
           version: SignTypedDataVersion.V3,
         }),
-      ).toThrow(/^Cannot read prop.+ null/u);
+      ).toThrow(
+        'Unable to encode value: Invalid number. Expected a valid number value, but received "null".',
+      );
     });
 
     it('should sign data with an atomic property set to undefined', function () {
@@ -5386,7 +5434,7 @@ describe('signTypedData', function () {
           },
           version: SignTypedDataVersion.V3,
         }),
-      ).toThrow('Unsupported or invalid type: foo');
+      ).toThrow('Unable to encode value: The type "foo" is not supported.');
     });
 
     it('should sign data when given extraneous types', function () {
@@ -5995,7 +6043,9 @@ describe('signTypedData', function () {
           },
           version: SignTypedDataVersion.V4,
         }),
-      ).toThrow(/^Cannot read prop.+ null/u);
+      ).toThrow(
+        'Unable to encode value: Invalid number. Expected a valid number value, but received "null"',
+      );
     });
 
     it('should throw an error when an atomic property is set to undefined', function () {
@@ -6256,7 +6306,7 @@ describe('signTypedData', function () {
           },
           version: SignTypedDataVersion.V4,
         }),
-      ).toThrow('Unsupported or invalid type: foo');
+      ).toThrow('Unable to encode value: The type "foo" is not supported.');
     });
 
     it('should sign data when given extraneous types', function () {

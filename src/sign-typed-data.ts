@@ -7,13 +7,21 @@ import {
   toBuffer,
 } from '@ethereumjs/util';
 import { keccak256 } from 'ethereum-cryptography/keccak';
-import { rawEncode, solidityPack } from './ethereumjs-abi-utils';
+import { encode } from '@metamask/abi-utils';
+import {
+  hexToBytes,
+  numberToBytes,
+  stringToBytes,
+  concatBytes,
+  bytesToHex,
+  numberToHex,
+  add0x,
+} from '@metamask/utils';
 import {
   concatSig,
   isNullish,
   legacyToBuffer,
   recoverPublicKey,
-  numberToBuffer,
 } from './utils';
 
 /**
@@ -165,27 +173,53 @@ function encodeField(
     ];
   }
 
+  // `function` is supported in `@metamask/abi-utils`, but not allowed by
+  // EIP-712, so we throw an error here.
+  if (type === 'function') {
+    throw new Error('Unsupported or invalid type: function');
+  }
+
   if (value === undefined) {
     throw new Error(`missing value for field ${name} of type ${type}`);
   }
 
+  if (type === 'address') {
+    if (typeof value === 'number') {
+      return ['address', numberToHex(value)];
+    } else if (typeof value === 'string') {
+      return ['address', add0x(value)];
+    }
+  }
+
+  if (type === 'bool') {
+    return ['bool', Boolean(value)];
+  }
+
   if (type === 'bytes') {
     if (typeof value === 'number') {
-      value = numberToBuffer(value);
+      value = numberToBytes(value);
     } else if (isHexString(value)) {
-      const prepend = value.length % 2 ? '0' : '';
-      value = Buffer.from(prepend + value.slice(2), 'hex');
-    } else {
-      value = Buffer.from(value, 'utf8');
+      value = hexToBytes(value);
+    } else if (typeof value === 'string') {
+      value = stringToBytes(value);
     }
     return ['bytes32', arrToBufArr(keccak256(value))];
   }
 
+  if (type.startsWith('bytes')) {
+    if (typeof value === 'number') {
+      value = numberToBytes(value);
+    } else if (isHexString(value)) {
+      value = hexToBytes(value);
+    }
+    return [type, value];
+  }
+
   if (type === 'string') {
     if (typeof value === 'number') {
-      value = numberToBuffer(value);
+      value = numberToBytes(value);
     } else {
-      value = Buffer.from(value ?? '', 'utf8');
+      value = stringToBytes(value ?? '');
     }
     return ['bytes32', arrToBufArr(keccak256(value))];
   }
@@ -204,7 +238,7 @@ function encodeField(
       'bytes32',
       arrToBufArr(
         keccak256(
-          rawEncode(
+          encode(
             typeValuePairs.map(([t]) => t),
             typeValuePairs.map(([, v]) => v),
           ),
@@ -251,7 +285,7 @@ function encodeData(
     encodedValues.push(value);
   }
 
-  return rawEncode(encodedTypes, encodedValues);
+  return arrToBufArr(encode(encodedTypes, encodedValues));
 }
 
 /**
@@ -344,7 +378,7 @@ function hashType(
   primaryType: string,
   types: Record<string, MessageTypeProperty[]>,
 ): Buffer {
-  const encodedHashType = Buffer.from(encodeType(primaryType, types), 'utf-8');
+  const encodedHashType = stringToBytes(encodeType(primaryType, types));
   return arrToBufArr(keccak256(encodedHashType));
 }
 
@@ -409,8 +443,10 @@ function eip712Hash<T extends MessageTypes>(
   validateVersion(version, [SignTypedDataVersion.V3, SignTypedDataVersion.V4]);
 
   const sanitizedData = sanitizeData(typedData);
-  const parts = [Buffer.from('1901', 'hex')];
-  parts.push(eip712DomainHash(typedData, version));
+  const parts = [hexToBytes('1901')];
+  parts.push(
+    eip712DomainHash(typedData, version)
+  );
 
   if (sanitizedData.primaryType !== 'EIP712Domain') {
     parts.push(
@@ -423,7 +459,7 @@ function eip712Hash<T extends MessageTypes>(
       ),
     );
   }
-  return arrToBufArr(keccak256(Buffer.concat(parts)));
+  return arrToBufArr(keccak256(concatBytes(parts)));
 }
 
 /**
@@ -481,6 +517,10 @@ function _typedSignatureHash(typedData: TypedDataV1): Buffer {
     return legacyToBuffer(e.value);
   });
   const types = typedData.map(function (e) {
+    if (e.type === 'function') {
+      throw new Error('Unsupported or invalid type: function');
+    }
+
     return e.type;
   });
   const schema = typedData.map(function (e) {
@@ -492,13 +532,11 @@ function _typedSignatureHash(typedData: TypedDataV1): Buffer {
 
   return arrToBufArr(
     keccak256(
-      solidityPack(
+      encode(
         ['bytes32', 'bytes32'],
         [
-          keccak256(
-            solidityPack(new Array(typedData.length).fill('string'), schema),
-          ),
-          keccak256(solidityPack(types, data)),
+          keccak256(encode(new Array(typedData.length).fill('string'), schema)),
+          keccak256(encode(types, data)),
         ],
       ),
     ),
@@ -593,5 +631,5 @@ export function recoverTypedSignature<
         );
   const publicKey = recoverPublicKey(messageHash, signature);
   const sender = publicToAddress(publicKey);
-  return bufferToHex(sender);
+  return bytesToHex(sender);
 }
