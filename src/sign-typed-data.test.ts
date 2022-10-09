@@ -298,9 +298,9 @@ const encodeDataExamples = {
     MAX_SAFE_INTEGER_AS_HEX,
     MAX_SAFE_INTEGER_PLUS_ONE_CHAR_AS_HEX,
   ],
-  int8: [0, '0', '0x0', 127, -128],
+  int8: [0, '0', '0x0', 255, -255],
   int256: [0, '0', '0x0', Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER],
-  uint8: [0, '0', '0x0', 128],
+  uint8: [0, '0', '0x0', 255],
   uint256: [0, '0', '0x0', Number.MAX_SAFE_INTEGER],
   // atomic types not supported by EIP-712:
   int: [0, '0', '0x0', Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER], // interpreted as `int256` by `ethereumjs-abi`
@@ -1168,7 +1168,9 @@ describe('TypedDataUtils.encodeData', function () {
           types,
           SignTypedDataVersion.V4,
         ).toString('hex'),
-      ).toThrow(/^Cannot read prop.+ null/u);
+      ).toThrow(
+        'Unable to encode value: Invalid number. Expected a valid number value, but received "null".',
+      );
     });
 
     it('should throw an error when an atomic property is set to undefined', function () {
@@ -1997,7 +1999,9 @@ describe('TypedDataUtils.hashStruct', function () {
           types,
           SignTypedDataVersion.V3,
         ).toString('hex'),
-      ).toThrow(/^Cannot read prop.+ null/u);
+      ).toThrow(
+        'Unable to encode value: Invalid number. Expected a valid number value, but received "null".',
+      );
     });
 
     it('should hash data with an atomic property set to undefined', function () {
@@ -2515,7 +2519,9 @@ describe('TypedDataUtils.hashStruct', function () {
           types,
           SignTypedDataVersion.V4,
         ).toString('hex'),
-      ).toThrow(/^Cannot read prop.+ null/u);
+      ).toThrow(
+        'Unable to encode value: Invalid number. Expected a valid number value, but received "null".',
+      );
     });
 
     it('should throw an error when an atomic property is set to undefined', function () {
@@ -4293,9 +4299,9 @@ const signTypedDataV1Examples = {
     Number.MAX_SAFE_INTEGER,
     Buffer.from('10', 'utf8'),
   ],
-  int8: [0, '0', '0x0', 127, -128],
+  int8: [0, '0', '0x0', 255, -255],
   int256: [0, '0', '0x0', Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER],
-  uint8: [0, '0', '0x0', 128],
+  uint8: [0, '0', '0x0', 255, -255],
   uint256: [
     0,
     '0',
@@ -4424,7 +4430,8 @@ describe('typedSignatureHash', function () {
           value: 'Hi, Alice!',
         },
       ],
-      errorMessage: 'Unsupported or invalid type: jocker',
+      errorMessage:
+        'Unable to encode value: The type "jocker" is not supported.',
       label: 'an unrecognized type',
     },
     {
